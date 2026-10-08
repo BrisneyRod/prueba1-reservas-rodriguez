@@ -1,0 +1,11 @@
+## Escenarios que elegí y por qué
+
+Elegí cruces parciales, reservas contenidas dentro de otras, reservas que contienen otra e intervalos idénticos, porque todos ocupan la misma sala al mismo tiempo (`specs/001-reservas-sala/spec.md:24-35`). También incluí reservas consecutivas, salas diferentes y horarios separados para comprobar que no se rechacen solicitudes válidas (`specs/001-reservas-sala/spec.md:36-41`). Las pruebas cubren los conflictos en `test/crear_reserva_test.dart:78-131` y los casos permitidos en `test/crear_reserva_test.dart:148-203`. Además, `test/crear_reserva_test.dart:36-42` verifica el mensaje exacto y que una reserva rechazada no se guarde.
+
+## Riesgo más grave del repositorio
+
+El mayor riesgo es depender de que la protección de la base de datos esté realmente aplicada. La política de lectura solo muestra las reservas del usuario autenticado (`supabase/migracion.sql:39-42`), mientras el repositorio consulta las reservas de la sala (`lib/data/supabase_reservas_repository.dart:11-14`). Por eso, la validación previa podría no detectar una reserva de otro estudiante. La restricción de exclusión definida en `supabase/migracion.sql:16-34` es indispensable para bloquear ese conflicto y las solicitudes simultáneas. Las pruebas usan un repositorio en memoria (`test/crear_reserva_test.dart:12-19` y `test/support/reservas_en_memoria.dart:4-11`), así que no comprueban que esa migración esté instalada en Supabase.
+
+## ¿La regla protege la app real?
+
+**Sí, en el diseño del proyecto, siempre que la migración esté aplicada en la base de datos real.** `lib/main.dart:21-22` conecta el repositorio de Supabase con `CrearReserva`, y `lib/presentation/reserva_page.dart:63-74` utiliza ese caso de uso. `lib/domain/crear_reserva.dart:16-26` rechaza los intervalos que se solapan. Para proteger también las reservas concurrentes, `supabase/migracion.sql:26-31` define una restricción que impide intervalos cruzados en la misma sala. Si Supabase detecta ese conflicto, `lib/data/supabase_reservas_repository.dart:31-35` lo transforma en una excepción que `lib/domain/crear_reserva.dart:30-36` convierte en el mensaje de rechazo esperado. No puedo asegurar que la protección funcione en el servidor real sin verificar que la migración se haya ejecutado.
